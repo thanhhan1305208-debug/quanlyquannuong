@@ -1,7 +1,6 @@
 
 import streamlit as st
 import pandas as pd
-import requests
 import json
 import os
 from datetime import datetime, date, time
@@ -25,84 +24,64 @@ DATA_FILE = "bbq_data.json"
 
 MENU = [
     {"name": "Ba chỉ bò Mỹ", "category": "Thịt bò", "price": 129000,
-     "description": "Ba chỉ bò Mỹ mềm ngon, đậm vị.",
-     "search": ["beef brisket", "beef"]},
+     "description": "Ba chỉ bò Mỹ mềm ngon, đậm vị."},
 
     {"name": "Sườn bò nướng", "category": "Thịt bò", "price": 189000,
-     "description": "Sườn bò nướng thơm lừng.",
-     "search": ["beef ribs", "beef"]},
+     "description": "Sườn bò nướng thơm lừng."},
 
     {"name": "Lõi vai bò Mỹ", "category": "Thịt bò", "price": 159000,
-     "description": "Lõi vai bò Mỹ tươi ngon.",
-     "search": ["beef steak", "steak"]},
+     "description": "Lõi vai bò Mỹ tươi ngon."},
 
     {"name": "Bò cuộn nấm", "category": "Thịt bò", "price": 99000,
-     "description": "Thịt bò cuộn nấm kim châm.",
-     "search": ["beef mushroom", "beef"]},
+     "description": "Thịt bò cuộn nấm kim châm."},
 
     {"name": "Ba chỉ heo nướng", "category": "Thịt heo", "price": 89000,
-     "description": "Ba chỉ heo nướng vàng thơm.",
-     "search": ["pork belly", "pork"]},
+     "description": "Ba chỉ heo nướng vàng thơm."},
 
     {"name": "Sườn heo BBQ", "category": "Thịt heo", "price": 129000,
-     "description": "Sườn heo nướng sốt BBQ.",
-     "search": ["pork ribs", "ribs"]},
+     "description": "Sườn heo nướng sốt BBQ."},
 
     {"name": "Nạc vai heo", "category": "Thịt heo", "price": 99000,
-     "description": "Nạc vai heo tươi dùng để nướng.",
-     "search": ["pork shoulder", "pork"]},
+     "description": "Nạc vai heo tươi dùng để nướng."},
 
     {"name": "Tôm sú nướng", "category": "Hải sản", "price": 149000,
-     "description": "Tôm sú nướng thơm ngon.",
-     "search": ["prawn", "shrimp"]},
+     "description": "Tôm sú nướng thơm ngon."},
 
     {"name": "Mực nướng sa tế", "category": "Hải sản", "price": 139000,
-     "description": "Mực nướng sa tế cay thơm.",
-     "search": ["squid", "seafood"]},
+     "description": "Mực nướng sa tế cay thơm."},
 
     {"name": "Bạch tuộc nướng", "category": "Hải sản", "price": 159000,
-     "description": "Bạch tuộc nướng thơm ngon.",
-     "search": ["octopus", "seafood"]},
+     "description": "Bạch tuộc nướng thơm ngon."},
 
     {"name": "Hàu nướng phô mai", "category": "Hải sản", "price": 99000,
-     "description": "Hàu nướng phô mai béo thơm.",
-     "search": ["oyster", "seafood"]},
+     "description": "Hàu nướng phô mai béo thơm."},
 
     {"name": "Nấm kim châm", "category": "Rau củ", "price": 35000,
-     "description": "Nấm kim châm tươi ngon.",
-     "search": ["enoki mushroom", "mushroom"]},
+     "description": "Nấm kim châm tươi ngon."},
 
     {"name": "Rau củ tổng hợp", "category": "Rau củ", "price": 45000,
-     "description": "Các loại rau củ tươi ngon.",
-     "search": ["vegetable platter", "vegetables"]},
+     "description": "Các loại rau củ tươi ngon."},
 
     {"name": "Kim chi Hàn Quốc", "category": "Rau củ", "price": 30000,
-     "description": "Kim chi Hàn Quốc chua cay.",
-     "search": ["kimchi", "vegetables"]},
+     "description": "Kim chi Hàn Quốc chua cay."},
 
     {"name": "Lẩu Thái hải sản", "category": "Lẩu & món nóng", "price": 259000,
-     "description": "Lẩu Thái chua cay hải sản.",
-     "search": ["thai seafood soup", "seafood soup"]},
+     "description": "Lẩu Thái chua cay hải sản."},
 
     {"name": "Lẩu kim chi", "category": "Lẩu & món nóng", "price": 229000,
-     "description": "Lẩu kim chi Hàn Quốc nóng hổi.",
-     "search": ["kimchi stew", "korean stew"]},
+     "description": "Lẩu kim chi Hàn Quốc nóng hổi."},
 
     {"name": "Cơm chiên hải sản", "category": "Lẩu & món nóng", "price": 69000,
-     "description": "Cơm chiên cùng tôm và hải sản.",
-     "search": ["seafood fried rice", "fried rice"]},
+     "description": "Cơm chiên cùng tôm và hải sản."},
 
     {"name": "Trà đào cam sả", "category": "Đồ uống", "price": 39000,
-     "description": "Trà đào cam sả thanh mát.",
-     "search": ["peach tea", "iced tea"]},
+     "description": "Trà đào cam sả thanh mát."},
 
     {"name": "Nước ngọt", "category": "Đồ uống", "price": 25000,
-     "description": "Nước giải khát mát lạnh.",
-     "search": ["soft drink", "drink"]},
+     "description": "Nước giải khát mát lạnh."},
 
     {"name": "Nước suối", "category": "Đồ uống", "price": 15000,
-     "description": "Nước suối đóng chai.",
-     "search": ["bottled water", "water"]}
+     "description": "Nước suối đóng chai."}
 ]
 
 CATEGORIES = [
@@ -115,71 +94,89 @@ CATEGORIES = [
 ]
 
 # =====================================================
-# 3. HÌNH ẢNH MÓN ĂN
+# 3. ẢNH TRỰC TUYẾN RIÊNG CHO TỪNG MÓN
 # =====================================================
+# Mỗi món có từ khóa và mã ảnh riêng.
+# lock giúp giữ kết quả ảnh ổn định hơn giữa các lần tải.
 
-# Ảnh dự phòng theo từng nhóm món.
-# Các URL này là ảnh trực tiếp từ Unsplash.
+IMAGE_URLS = {
+    "Ba chỉ bò Mỹ":
+        "https://loremflickr.com/900/650/beef,belly,grilled?lock=101",
 
-FALLBACK_IMAGES = {
-    "Thịt bò":
-        "https://images.unsplash.com/photo-1544025162-d76694265947?w=900",
+    "Sườn bò nướng":
+        "https://loremflickr.com/900/650/grilled,beef,ribs?lock=102",
 
-    "Thịt heo":
-        "https://images.unsplash.com/photo-1604908176997-125f25cc6f3d?w=900",
+    "Lõi vai bò Mỹ":
+        "https://loremflickr.com/900/650/beef,steak,grilled?lock=103",
 
-    "Hải sản":
-        "https://images.unsplash.com/photo-1559737558-2f5a35f4523b?w=900",
+    "Bò cuộn nấm":
+        "https://loremflickr.com/900/650/beef,mushroom,roll?lock=104",
 
-    "Rau củ":
-        "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=900",
+    "Ba chỉ heo nướng":
+        "https://loremflickr.com/900/650/grilled,pork,belly?lock=105",
 
-    "Lẩu & món nóng":
-        "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=900",
+    "Sườn heo BBQ":
+        "https://loremflickr.com/900/650/barbecue,pork,ribs?lock=106",
 
-    "Đồ uống":
-        "https://images.unsplash.com/photo-1544145945-f90425340c7e?w=900"
+    "Nạc vai heo":
+        "https://loremflickr.com/900/650/pork,shoulder,meat?lock=107",
+
+    "Tôm sú nướng":
+        "https://loremflickr.com/900/650/grilled,prawn,shrimp?lock=108",
+
+    "Mực nướng sa tế":
+        "https://loremflickr.com/900/650/grilled,squid,seafood?lock=109",
+
+    "Bạch tuộc nướng":
+        "https://loremflickr.com/900/650/grilled,octopus?lock=110",
+
+    "Hàu nướng phô mai":
+        "https://loremflickr.com/900/650/baked,oysters,cheese?lock=111",
+
+    "Nấm kim châm":
+        "https://loremflickr.com/900/650/enoki,mushroom?lock=112",
+
+    "Rau củ tổng hợp":
+        "https://loremflickr.com/900/650/grilled,vegetable,platter?lock=113",
+
+    "Kim chi Hàn Quốc":
+        "https://loremflickr.com/900/650/korean,kimchi?lock=114",
+
+    "Lẩu Thái hải sản":
+        "https://loremflickr.com/900/650/thai,seafood,hotpot?lock=115",
+
+    "Lẩu kim chi":
+        "https://loremflickr.com/900/650/korean,kimchi,stew?lock=116",
+
+    "Cơm chiên hải sản":
+        "https://loremflickr.com/900/650/seafood,fried,rice?lock=117",
+
+    "Trà đào cam sả":
+        "https://loremflickr.com/900/650/peach,iced,tea?lock=118",
+
+    "Nước ngọt":
+        "https://loremflickr.com/900/650/soft,drink,glass?lock=119",
+
+    "Nước suối":
+        "https://loremflickr.com/900/650/bottled,water?lock=120"
 }
 
 
-@st.cache_data(ttl=86400, show_spinner=False)
-def get_food_image(search_terms, category):
-    """
-    Tìm ảnh món ăn từ TheMealDB.
-    Nếu không tìm được thì sử dụng ảnh dự phòng.
-    Hàm luôn trả về URL dạng chuỗi.
-    """
+def show_food_image(item):
+    image_url = IMAGE_URLS.get(item["name"])
 
-    for term in search_terms:
-        try:
-            response = requests.get(
-                "https://www.themealdb.com/api/json/v1/1/search.php",
-                params={"s": term},
-                timeout=8,
-                headers={"User-Agent": "Mozilla/5.0"}
-            )
-
-            if response.status_code == 200:
-                data = response.json()
-                meals = data.get("meals")
-
-                if meals:
-                    image_url = meals[0].get("strMealThumb")
-
-                    if image_url and image_url.startswith("https://"):
-                        return image_url
-
-        except (requests.RequestException, ValueError, TypeError):
-            continue
-
-    return FALLBACK_IMAGES.get(
-        category,
-        FALLBACK_IMAGES["Thịt bò"]
-    )
+    if image_url:
+        st.image(
+            image_url,
+            use_container_width=True,
+            caption=item["name"]
+        )
+    else:
+        st.warning(f"Chưa có ảnh cho món {item['name']}")
 
 
 # =====================================================
-# 4. DỮ LIỆU
+# 4. DỮ LIỆU VÀ GIỎ HÀNG
 # =====================================================
 
 def load_database():
@@ -245,7 +242,6 @@ def add_to_cart(item, quantity):
 
     if name in st.session_state.cart:
         st.session_state.cart[name]["quantity"] += int(quantity)
-
     else:
         st.session_state.cart[name] = {
             "name": name,
@@ -379,9 +375,9 @@ if page == "🏠 Trang chủ":
         unsafe_allow_html=True
     )
 
-    hero_url = get_food_image(
-        ["barbecue", "grilled meat"],
-        "Thịt bò"
+    hero_url = (
+        "https://loremflickr.com/1400/550/"
+        "korean,bbq,grill,restaurant?lock=200"
     )
 
     st.image(
@@ -414,12 +410,7 @@ if page == "🏠 Trang chủ":
         item = MENU[index]
 
         with column:
-            image_url = get_food_image(
-                item["search"],
-                item["category"]
-            )
-
-            st.image(image_url, use_container_width=True)
+            show_food_image(item)
             st.markdown(f"### {item['name']}")
             st.write(item["description"])
 
@@ -474,14 +465,12 @@ elif page == "🍖 Thực đơn":
             with column:
                 index = MENU.index(item)
 
-                st.markdown("<div class='food-card'>", unsafe_allow_html=True)
-
-                image_url = get_food_image(
-                    item["search"],
-                    item["category"]
+                st.markdown(
+                    "<div class='food-card'>",
+                    unsafe_allow_html=True
                 )
 
-                st.image(image_url, use_container_width=True)
+                show_food_image(item)
 
                 st.markdown(f"### {item['name']}")
                 st.caption(item["category"])
@@ -625,12 +614,8 @@ elif page == "🛒 Gọi món":
             with column:
                 index = MENU.index(item)
 
-                image_url = get_food_image(
-                    item["search"],
-                    item["category"]
-                )
+                show_food_image(item)
 
-                st.image(image_url, use_container_width=True)
                 st.markdown(f"### {item['name']}")
                 st.write(money(item["price"]))
 
