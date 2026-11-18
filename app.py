@@ -4,330 +4,326 @@ import pandas as pd
 import json
 import os
 import uuid
-import requests
+from pathlib import Path
+from datetime import datetime, date
 from PIL import Image
-from io import BytesIO
-from datetime import datetime, date, timedelta
 
-# ======================================================
-# 1. CẤU HÌNH WEBSITE
-# ======================================================
+# =====================================================
+# 1. CẤU HÌNH
+# =====================================================
 
 st.set_page_config(
-    page_title="BBQ HOUSE",
+    page_title="BBQ HOUSE | Restaurant",
     page_icon="🔥",
     layout="wide",
     initial_sidebar_state="expanded"
 )
 
-DATA_FILE = "bbq_data.json"
+BASE_DIR = Path(__file__).parent
+IMAGE_DIR = BASE_DIR / "images"
+DATA_FILE = BASE_DIR / "bbq_data.json"
+COLLAGE_FILE = BASE_DIR / "bbq-house-menu.png"
 
-# ======================================================
-# 2. GIAO DIỆN
-# ======================================================
+IMAGE_DIR.mkdir(exist_ok=True)
 
-st.markdown("""
-<style>
-.stApp {
-    background: #101010;
-    color: #ffffff;
-}
-[data-testid="stSidebar"] {
-    background: #1b1b1b;
-}
-[data-testid="stHeader"] {
-    background: #101010;
-}
-h1, h2, h3, h4 {
-    color: #ff8735 !important;
-}
-p, label, span {
-    color: #eeeeee;
-}
-div.stButton > button {
-    background: #f47721;
-    color: white;
-    border: none;
-    border-radius: 9px;
-    font-weight: bold;
-    min-height: 42px;
-}
-div.stButton > button:hover {
-    background: #d95e0b;
-    color: white;
-}
-.hero {
-    background: linear-gradient(120deg,#481c08,#171717);
-    padding: 55px 20px;
-    text-align: center;
-    border-radius: 18px;
-    border: 1px solid #8d461c;
-}
-.hero h1 {
-    font-size: 48px;
-    color: #ff913d !important;
-}
-.hero p {
-    font-size: 17px;
-}
-.price {
-    color: #ff9a45;
-    font-size: 21px;
-    font-weight: bold;
-}
-</style>
-""", unsafe_allow_html=True)
+# =====================================================
+# 2. DANH SÁCH HÌNH ẢNH
+# =====================================================
+
+IMAGE_NAMES = [
+    "ba-chi-bo-my",
+    "bo-cuon-nam-kim-cham",
+    "de-suon-bo-my",
+    "ba-chi-heo",
+    "suon-heo-bbq",
+    "nac-vai-heo",
+    "ga-nuong-mat-ong",
+    "muc-nuong-sa-te",
+    "tom-nuong-muoi-ot",
+    "bach-tuoc-nuong",
+    "ca-hoi-nuong",
+    "salad-tron",
+    "kim-chi",
+    "khoai-tay-chien",
+    "com-chien-trung",
+    "lau-kim-chi",
+    "lau-nam",
+    "coca-cola",
+    "tra-dao",
+    "nuoc-suoi"
+]
 
 
-# ======================================================
-# 3. THỰC ĐƠN 20 MÓN
-# ======================================================
+def create_images():
+    """
+    Tự cắt ảnh thực đơn tổng 5 cột x 4 hàng.
+    Ảnh nguồn cần nằm cạnh app.py và tên là
+    bbq-house-menu.png.
+    """
+
+    missing = [
+        name for name in IMAGE_NAMES
+        if not (IMAGE_DIR / f"{name}.jpg").exists()
+    ]
+
+    if not missing or not COLLAGE_FILE.exists():
+        return
+
+    try:
+        with Image.open(COLLAGE_FILE) as source:
+            source = source.convert("RGB")
+            width, height = source.size
+
+            cell_width = width / 5
+            cell_height = height / 4
+
+            for index, name in enumerate(IMAGE_NAMES):
+                row, col = divmod(index, 5)
+
+                left = round(col * cell_width)
+                top = round(row * cell_height)
+                right = round((col + 1) * cell_width)
+                bottom = round((row + 1) * cell_height)
+
+                # Bỏ đường phân cách giữa các ô
+                if col > 0:
+                    left += 2
+                if row > 0:
+                    top += 2
+                if col < 4:
+                    right -= 2
+                if row < 3:
+                    bottom -= 2
+
+                image = source.crop(
+                    (left, top, right, bottom)
+                )
+
+                image.save(
+                    IMAGE_DIR / f"{name}.jpg",
+                    "JPEG",
+                    quality=92
+                )
+
+    except Exception as error:
+        st.warning(f"Không thể xử lý ảnh thực đơn: {error}")
+
+
+create_images()
+
+
+# =====================================================
+# 3. THỰC ĐƠN
+# =====================================================
 
 MENU = [
     {
+        "id": 1,
         "name": "Ba chỉ bò Mỹ",
         "category": "Thịt bò",
-        "price": 129000,
-        "desc": "Ba chỉ bò Mỹ thái lát mềm ngon.",
-        "image": "https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=900"
+        "price": 159000,
+        "description": "Ba chỉ bò Mỹ thái lát, mềm và béo.",
+        "image": "ba-chi-bo-my"
     },
     {
+        "id": 2,
         "name": "Bò cuộn nấm kim châm",
         "category": "Thịt bò",
-        "price": 119000,
-        "desc": "Thịt bò cuộn nấm kim châm.",
-        "image": "https://images.unsplash.com/photo-1547592180-85f173990554?w=900"
+        "price": 139000,
+        "description": "Thịt bò cuộn nấm kim châm tươi.",
+        "image": "bo-cuon-nam-kim-cham"
     },
     {
+        "id": 3,
         "name": "Dẻ sườn bò Mỹ",
         "category": "Thịt bò",
-        "price": 159000,
-        "desc": "Dẻ sườn bò nướng đậm vị.",
-        "image": "https://images.unsplash.com/photo-1558030006-450675393462?w=900"
+        "price": 189000,
+        "description": "Dẻ sườn bò Mỹ ướp sốt BBQ.",
+        "image": "de-suon-bo-my"
     },
     {
+        "id": 4,
         "name": "Ba chỉ heo",
         "category": "Thịt heo",
-        "price": 85000,
-        "desc": "Ba chỉ heo tươi dùng để nướng.",
-        "image": "https://images.unsplash.com/photo-1544025162-d76694265947?w=900"
+        "price": 109000,
+        "description": "Ba chỉ heo tươi, thái lát vừa ăn.",
+        "image": "ba-chi-heo"
     },
     {
+        "id": 5,
         "name": "Sườn heo BBQ",
         "category": "Thịt heo",
-        "price": 139000,
-        "desc": "Sườn heo nướng sốt BBQ.",
-        "image": "https://images.unsplash.com/photo-1544025162-d76694265947?w=900"
+        "price": 149000,
+        "description": "Sườn heo nướng sốt BBQ đậm vị.",
+        "image": "suon-heo-bbq"
     },
     {
+        "id": 6,
         "name": "Nạc vai heo",
         "category": "Thịt heo",
-        "price": 89000,
-        "desc": "Nạc vai heo nướng thơm ngon.",
-        "image": "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?w=900"
-    },
-    {
-        "name": "Gà nướng mật ong",
-        "category": "Món nướng",
         "price": 99000,
-        "desc": "Gà nướng phủ sốt mật ong.",
-        "image": "https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=900"
+        "description": "Nạc vai heo tươi ngon.",
+        "image": "nac-vai-heo"
     },
     {
+        "id": 7,
+        "name": "Gà nướng mật ong",
+        "category": "Thịt gà",
+        "price": 119000,
+        "description": "Gà nướng phủ sốt mật ong.",
+        "image": "ga-nuong-mat-ong"
+    },
+    {
+        "id": 8,
         "name": "Mực nướng sa tế",
         "category": "Hải sản",
-        "price": 129000,
-        "desc": "Mực nướng sa tế cay thơm.",
-        "image": "https://images.unsplash.com/photo-1599487488170-d11ec9c172f0?w=900"
+        "price": 159000,
+        "description": "Mực tươi nướng cùng sa tế.",
+        "image": "muc-nuong-sa-te"
     },
     {
+        "id": 9,
         "name": "Tôm nướng muối ớt",
         "category": "Hải sản",
-        "price": 139000,
-        "desc": "Tôm nướng muối ớt.",
-        "image": "https://images.unsplash.com/photo-1559737558-2f5a35f4523b?w=900"
+        "price": 169000,
+        "description": "Tôm nướng muối ớt thơm ngon.",
+        "image": "tom-nuong-muoi-ot"
     },
     {
+        "id": 10,
         "name": "Bạch tuộc nướng",
         "category": "Hải sản",
-        "price": 149000,
-        "desc": "Bạch tuộc nướng thơm ngon.",
-        "image": "https://images.unsplash.com/photo-1565680018434-b513d5e5fd47?w=900"
+        "price": 179000,
+        "description": "Bạch tuộc nướng gia vị đặc biệt.",
+        "image": "bach-tuoc-nuong"
     },
     {
+        "id": 11,
         "name": "Cá hồi nướng",
         "category": "Hải sản",
-        "price": 169000,
-        "desc": "Cá hồi nướng thơm béo.",
-        "image": "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=900"
+        "price": 199000,
+        "description": "Cá hồi nướng thơm, ăn kèm chanh.",
+        "image": "ca-hoi-nuong"
     },
     {
+        "id": 12,
         "name": "Salad trộn",
         "category": "Món ăn kèm",
-        "price": 45000,
-        "desc": "Salad rau củ tươi trộn sốt.",
-        "image": "https://images.unsplash.com/photo-1512621776951-a57141f2eefd?w=900"
+        "price": 59000,
+        "description": "Rau xanh, cà chua và sốt salad.",
+        "image": "salad-tron"
     },
     {
+        "id": 13,
         "name": "Kim chi",
         "category": "Món ăn kèm",
-        "price": 25000,
-        "desc": "Kim chi cải thảo Hàn Quốc.",
-        "image": "https://images.unsplash.com/photo-1583224994016-7f4e9b1c6c7a?w=900"
+        "price": 39000,
+        "description": "Kim chi cải thảo kiểu Hàn Quốc.",
+        "image": "kim-chi"
     },
     {
+        "id": 14,
         "name": "Khoai tây chiên",
         "category": "Món ăn kèm",
-        "price": 35000,
-        "desc": "Khoai tây chiên giòn.",
-        "image": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=900"
+        "price": 49000,
+        "description": "Khoai tây chiên giòn.",
+        "image": "khoai-tay-chien"
     },
     {
+        "id": 15,
         "name": "Cơm chiên trứng",
         "category": "Món ăn kèm",
-        "price": 45000,
-        "desc": "Cơm chiên trứng nóng hổi.",
-        "image": "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=900"
+        "price": 59000,
+        "description": "Cơm chiên trứng nóng hổi.",
+        "image": "com-chien-trung"
     },
     {
+        "id": 16,
         "name": "Lẩu kim chi",
         "category": "Lẩu",
-        "price": 229000,
-        "desc": "Lẩu kim chi Hàn Quốc chua cay.",
-        "image": "https://images.unsplash.com/photo-1582878826629-29b7ad1cdc43?w=900"
+        "price": 259000,
+        "description": "Lẩu kim chi chua cay kiểu Hàn.",
+        "image": "lau-kim-chi"
     },
     {
+        "id": 17,
         "name": "Lẩu nấm",
         "category": "Lẩu",
-        "price": 219000,
-        "desc": "Lẩu nấm thanh ngọt với nhiều loại nấm.",
-        "image": "https://images.unsplash.com/photo-1547592180-85f173990554?w=900"
+        "price": 239000,
+        "description": "Lẩu nấm thanh ngọt với nhiều loại nấm.",
+        "image": "lau-nam"
     },
     {
+        "id": 18,
         "name": "Coca-Cola",
         "category": "Đồ uống",
-        "price": 18000,
-        "desc": "Nước ngọt Coca-Cola.",
-        "image": "https://images.unsplash.com/photo-1554866585-cd94860890b7?w=900"
+        "price": 25000,
+        "description": "Nước giải khát Coca-Cola.",
+        "image": "coca-cola"
     },
     {
+        "id": 19,
         "name": "Trà đào",
         "category": "Đồ uống",
-        "price": 30000,
-        "desc": "Trà đào thơm mát.",
-        "image": "https://images.unsplash.com/photo-1556679343-c7306c1976bc?w=900"
+        "price": 35000,
+        "description": "Trà đào mát lạnh.",
+        "image": "tra-dao"
     },
     {
+        "id": 20,
         "name": "Nước suối",
         "category": "Đồ uống",
-        "price": 12000,
-        "desc": "Nước suối đóng chai.",
-        "image": "https://images.unsplash.com/photo-1523362628745-0c100150b504?w=900"
+        "price": 15000,
+        "description": "Nước suối đóng chai.",
+        "image": "nuoc-suoi"
     }
 ]
 
 
-# ======================================================
-# 4. HÀM TẢI VÀ HIỂN THỊ ẢNH
-# ======================================================
-
-@st.cache_data(ttl=3600, show_spinner=False)
-def download_image(url):
-    response = requests.get(
-        url,
-        timeout=12,
-        headers={"User-Agent": "Mozilla/5.0"}
-    )
-    response.raise_for_status()
-
-    image = Image.open(BytesIO(response.content))
-    image.verify()
-
-    return response.content
-
-
-def show_food_image(item):
-    try:
-        image_bytes = download_image(item["image"])
-        image = Image.open(BytesIO(image_bytes))
-        st.image(
-            image,
-            caption=item["name"],
-            use_container_width=True
-        )
-    except Exception:
-        st.markdown(
-            f"""
-            <div style="
-                background:#252525;
-                height:180px;
-                display:flex;
-                flex-direction:column;
-                justify-content:center;
-                align-items:center;
-                border-radius:12px;
-                border:1px solid #444;
-                text-align:center;
-            ">
-                <div style="font-size:45px">🍽️</div>
-                <div style="color:#ff913d;font-weight:bold">
-                    {item['name']}
-                </div>
-                <div style="color:#aaaaaa;font-size:12px">
-                    Ảnh chưa tải được
-                </div>
-            </div>
-            """,
-            unsafe_allow_html=True
-        )
-
-
-# ======================================================
-# 5. DỮ LIỆU
-# ======================================================
+# =====================================================
+# 4. DỮ LIỆU VÀ LƯU TRỮ
+# =====================================================
 
 def load_data():
-    if os.path.exists(DATA_FILE):
-        try:
-            with open(DATA_FILE, "r", encoding="utf-8") as file:
-                data = json.load(file)
-                return (
-                    data.get("orders", []),
-                    data.get("reservations", [])
-                )
-        except (OSError, ValueError, TypeError):
-            pass
+    default = {
+        "orders": [],
+        "reservations": []
+    }
 
-    return [], []
+    if not DATA_FILE.exists():
+        return default
+
+    try:
+        with open(DATA_FILE, "r", encoding="utf-8") as file:
+            data = json.load(file)
+
+        data.setdefault("orders", [])
+        data.setdefault("reservations", [])
+        return data
+
+    except (json.JSONDecodeError, OSError):
+        return default
 
 
 def save_data():
-    data = {
-        "orders": st.session_state.order_history,
-        "reservations": st.session_state.reservations
-    }
+    temp_file = DATA_FILE.with_suffix(".tmp")
 
-    with open(DATA_FILE, "w", encoding="utf-8") as file:
-        json.dump(data, file, ensure_ascii=False, indent=4)
+    with open(temp_file, "w", encoding="utf-8") as file:
+        json.dump(
+            st.session_state.database,
+            file,
+            ensure_ascii=False,
+            indent=4
+        )
+
+    os.replace(temp_file, DATA_FILE)
 
 
-# ======================================================
-# 6. KHỞI TẠO SESSION
-# ======================================================
-
-if "order_history" not in st.session_state:
-    old_orders, old_reservations = load_data()
-    st.session_state.order_history = old_orders
-    st.session_state.reservations = old_reservations
-
-if "reservations" not in st.session_state:
-    st.session_state.reservations = []
+if "database" not in st.session_state:
+    st.session_state.database = load_data()
 
 if "cart" not in st.session_state:
-    st.session_state.cart = {}
-
-if "current_order" not in st.session_state:
-    st.session_state.current_order = None
+    st.session_state.cart = []
 
 if "customer_name" not in st.session_state:
     st.session_state.customer_name = ""
@@ -335,742 +331,962 @@ if "customer_name" not in st.session_state:
 if "table_number" not in st.session_state:
     st.session_state.table_number = "Bàn 01"
 
+if "last_order_id" not in st.session_state:
+    st.session_state.last_order_id = None
 
-# ======================================================
-# 7. HÀM HỖ TRỢ
-# ======================================================
+
+# =====================================================
+# 5. HÀM HỖ TRỢ
+# =====================================================
 
 def money(value):
-    return f"{int(value):,}".replace(",", ".") + " VNĐ"
+    return f"{int(value):,}".replace(",", ".") + " đ"
 
 
-def get_item(name):
-    return next(
-        (item for item in MENU if item["name"] == name),
-        None
-    )
+def get_image_path(item):
+    path = IMAGE_DIR / f"{item['image']}.jpg"
+
+    if path.exists():
+        return str(path)
+
+    return None
+
+
+def get_item(item_id):
+    for item in MENU:
+        if item["id"] == item_id:
+            return item
+
+    return None
 
 
 def cart_total():
     return sum(
-        item["price"] * item["qty"]
-        for item in st.session_state.cart.values()
+        item["price"] * item["quantity"]
+        for item in st.session_state.cart
     )
 
 
-def add_to_cart(item, qty):
-    key = item["name"]
+def add_to_cart(item, quantity, note):
+    if quantity < 1:
+        return
 
-    if key not in st.session_state.cart:
-        st.session_state.cart[key] = {
-            "name": item["name"],
-            "price": item["price"],
-            "qty": 0,
-            "note": ""
-        }
+    st.session_state.cart.append({
+        "id": item["id"],
+        "name": item["name"],
+        "price": item["price"],
+        "quantity": quantity,
+        "note": note.strip()
+    })
 
-    st.session_state.cart[key]["qty"] += int(qty)
+
+def clear_cart():
+    st.session_state.cart = []
 
 
 def create_order():
     if not st.session_state.cart:
         return None
 
-    items = [
-        {
-            "name": item["name"],
-            "price": item["price"],
-            "qty": item["qty"],
-            "note": item.get("note", "")
-        }
-        for item in st.session_state.cart.values()
-    ]
+    order_id = "BBQ-" + uuid.uuid4().hex[:8].upper()
 
-    return {
-        "id": str(uuid.uuid4())[:8].upper(),
-        "customer": st.session_state.customer_name,
+    order = {
+        "id": order_id,
+        "customer": st.session_state.customer_name.strip(),
         "table": st.session_state.table_number,
-        "items": items,
+        "items": st.session_state.cart.copy(),
         "total": cart_total(),
-        "created_at": datetime.now().strftime("%d/%m/%Y %H:%M"),
-        "created_date": date.today().isoformat(),
-        "paid": False,
-        "payment_method": ""
+        "status": "Chưa thanh toán",
+        "payment_method": "",
+        "created_at": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
     }
 
+    st.session_state.database["orders"].append(order)
+    st.session_state.last_order_id = order_id
 
-# ======================================================
-# 8. THANH ĐIỀU HƯỚNG
-# ======================================================
+    clear_cart()
+    save_data()
 
-st.sidebar.markdown("# 🔥 BBQ HOUSE")
-st.sidebar.caption("THE TASTE OF KOREAN BBQ")
-st.sidebar.divider()
-
-page = st.sidebar.radio(
-    "DANH MỤC",
-    [
-        "🏠 Trang chủ",
-        "🍖 Thực đơn",
-        "📅 Đặt bàn",
-        "🛒 Order món",
-        "💳 Thanh toán",
-        "📋 Quản lý",
-        "📊 Doanh thu"
-    ]
-)
-
-st.sidebar.divider()
-st.sidebar.write("🕒 10:00 - 22:00")
-st.sidebar.write("📞 0900 000 000")
-st.sidebar.caption("© 2026 BBQ HOUSE")
+    return order_id
 
 
-# ======================================================
-# 9. TRANG CHỦ
-# ======================================================
+def find_order(order_id):
+    for order in st.session_state.database["orders"]:
+        if order["id"] == order_id:
+            return order
 
-if page == "🏠 Trang chủ":
+    return None
+
+
+def show_food_image(item):
+    image_path = get_image_path(item)
+
+    if image_path:
+        st.image(
+            image_path,
+            use_container_width=True
+        )
+    else:
+        st.markdown(
+            """
+            <div style="
+                height:170px;
+                background:#252525;
+                border-radius:12px;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                color:#aaa;
+                font-size:14px;">
+                Chưa có hình ảnh
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+
+
+# =====================================================
+# 6. GIAO DIỆN
+# =====================================================
+
+st.markdown("""
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700;800&display=swap');
+
+html, body, [class*="css"] {
+    font-family: 'Be Vietnam Pro', sans-serif;
+}
+
+.stApp {
+    background-color: #101010;
+    color: #ffffff;
+}
+
+section[data-testid="stSidebar"] {
+    background-color: #191919;
+    border-right: 1px solid #343434;
+}
+
+h1, h2, h3 {
+    color: #ffffff;
+}
+
+p, label, span {
+    color: #eeeeee;
+}
+
+.brand {
+    font-size: 34px;
+    font-weight: 800;
+    color: #ff7029;
+    letter-spacing: 1px;
+}
+
+.subtitle {
+    color: #bbbbbb;
+    font-size: 14px;
+}
+
+.hero {
+    background: linear-gradient(120deg, #28120b, #5c1b0b, #1c1010);
+    padding: 45px 35px;
+    border-radius: 18px;
+    border: 1px solid #71351d;
+    margin-bottom: 25px;
+}
+
+.hero h1 {
+    color: #ff762e;
+    font-size: 43px;
+    font-weight: 800;
+}
+
+.hero p {
+    color: #f0d4c4;
+    font-size: 16px;
+}
+
+.food-card {
+    background: #1c1c1c;
+    padding: 12px;
+    border-radius: 14px;
+    border: 1px solid #333333;
+    margin-bottom: 12px;
+}
+
+.price {
+    color: #ff762e;
+    font-size: 18px;
+    font-weight: 800;
+}
+
+.orange-text {
+    color: #ff762e;
+}
+
+div.stButton > button {
+    background: #f15b24;
+    color: white;
+    border: none;
+    border-radius: 9px;
+    font-weight: 700;
+    min-height: 40px;
+}
+
+div.stButton > button:hover {
+    background: #ff7a38;
+    color: white;
+}
+
+div[data-testid="stMetric"] {
+    background: #202020;
+    border: 1px solid #383838;
+    padding: 18px;
+    border-radius: 12px;
+}
+
+hr {
+    border-color: #333333;
+}
+
+</style>
+""", unsafe_allow_html=True)
+
+
+# =====================================================
+# 7. THANH ĐIỀU HƯỚNG
+# =====================================================
+
+with st.sidebar:
+    st.markdown(
+        '<div class="brand">🔥 BBQ HOUSE</div>',
+        unsafe_allow_html=True
+    )
+
+    st.caption("GRILL • HOTPOT • ENJOY")
+
+    st.divider()
+
+    page = st.radio(
+        "MENU CHÍNH",
+        [
+            "Trang chủ",
+            "Thực đơn",
+            "Đặt bàn",
+            "Gọi món",
+            "Thanh toán",
+            "Quản lý đơn hàng",
+            "Doanh thu"
+        ],
+        label_visibility="visible"
+    )
+
+    st.divider()
+
+    st.markdown("### 🛒 Giỏ hàng")
+    st.write(f"Đang có **{len(st.session_state.cart)}** món")
+
+    st.markdown(
+        f'<div class="price">{money(cart_total())}</div>',
+        unsafe_allow_html=True
+    )
+
+    st.caption("BBQ HOUSE © 2026")
+
+
+# =====================================================
+# 8. TRANG CHỦ
+# =====================================================
+
+if page == "Trang chủ":
 
     st.markdown("""
     <div class="hero">
-        <h1>🔥 BBQ HOUSE 🔥</h1>
-        <h3>THE TASTE OF KOREAN BBQ</h3>
-        <p>Thưởng thức tinh hoa ẩm thực nướng</p>
-        <p>Không gian ấm cúng - Món ăn hấp dẫn</p>
+        <h1>BBQ HOUSE 🔥</h1>
+        <h2>THƯỞNG THỨC TIỆC NƯỚNG ĐÚNG ĐIỆU</h2>
+        <p>
+            Thịt nướng hấp dẫn • Hải sản tươi ngon • Lẩu nóng hổi
+        </p>
+        <p>Không gian ấm cúng - Hương vị khó quên</p>
     </div>
     """, unsafe_allow_html=True)
 
-    st.write("")
+    st.subheader("🔥 Món ăn nổi bật")
 
-    paid_orders = [
-        o for o in st.session_state.order_history
-        if o.get("paid") is True
-    ]
-
-    c1, c2, c3 = st.columns(3)
-
-    c1.metric("🍖 Tổng số món", len(MENU))
-    c2.metric("📅 Đặt bàn", len(st.session_state.reservations))
-    c3.metric("🧾 Đơn đã thanh toán", len(paid_orders))
-
-    st.divider()
-    st.subheader("⭐ MÓN ĂN NỔI BẬT")
-
-    featured_names = [
-        "Ba chỉ bò Mỹ",
-        "Bạch tuộc nướng",
-        "Lẩu kim chi",
-        "Lẩu nấm"
-    ]
+    featured = [MENU[0], MENU[7], MENU[15], MENU[16]]
 
     cols = st.columns(4)
 
-    for i, name in enumerate(featured_names):
-        item = get_item(name)
-
-        with cols[i]:
+    for col, item in zip(cols, featured):
+        with col:
             show_food_image(item)
             st.markdown(f"**{item['name']}**")
             st.markdown(
-                f"<div class='price'>{money(item['price'])}</div>",
+                f'<div class="price">{money(item["price"])}</div>',
                 unsafe_allow_html=True
             )
 
     st.divider()
-    st.subheader("❤️ TRẢI NGHIỆM BBQ HOUSE")
 
     a, b, c = st.columns(3)
 
-    a.markdown("### 🥩")
-    a.write("Nguyên liệu tươi ngon")
+    with a:
+        st.markdown("### 🥩")
+        st.markdown("**Thịt nướng**")
+        st.caption("Đa dạng các loại thịt tươi ngon.")
 
-    b.markdown("### 🔥")
-    b.write("Hương vị nướng hấp dẫn")
+    with b:
+        st.markdown("### 🦐")
+        st.markdown("**Hải sản**")
+        st.caption("Nhiều lựa chọn hấp dẫn.")
 
-    c.markdown("### 🍲")
-    c.write("Thực đơn đa dạng")
+    with c:
+        st.markdown("### 🍲")
+        st.markdown("**Lẩu nóng**")
+        st.caption("Thưởng thức cùng bạn bè và gia đình.")
 
+    st.divider()
 
-# ======================================================
-# 10. TRANG THỰC ĐƠN
-# ======================================================
-
-elif page == "🍖 Thực đơn":
-
-    st.title("🍖 THỰC ĐƠN BBQ HOUSE")
-    st.write("Khám phá những món ăn hấp dẫn.")
-
-    categories = ["Tất cả"] + sorted(
-        set(item["category"] for item in MENU)
+    st.markdown("### 📍 Chào mừng đến với BBQ HOUSE")
+    st.write(
+        "BBQ HOUSE mang đến trải nghiệm thưởng thức món nướng "
+        "và lẩu với thực đơn đa dạng."
     )
 
-    selected_category = st.selectbox(
-        "Chọn danh mục",
+    st.caption(
+        "Thông tin liên hệ và địa chỉ nhà hàng có thể được bổ sung "
+        "theo thông tin thực tế."
+    )
+
+
+# =====================================================
+# 9. TRANG THỰC ĐƠN
+# =====================================================
+
+elif page == "Thực đơn":
+
+    st.title("🍽️ THỰC ĐƠN BBQ HOUSE")
+    st.caption("Khám phá những món ăn hấp dẫn của chúng tôi.")
+
+    search = st.text_input(
+        "🔍 Tìm món ăn",
+        placeholder="Nhập tên món ăn..."
+    )
+
+    categories = [
+        "Tất cả",
+        "Thịt bò",
+        "Thịt heo",
+        "Thịt gà",
+        "Hải sản",
+        "Món ăn kèm",
+        "Lẩu",
+        "Đồ uống"
+    ]
+
+    category = st.selectbox(
+        "Danh mục món ăn",
         categories
     )
 
-    keyword = st.text_input(
-        "🔍 Tìm món ăn",
-        placeholder="Nhập tên món..."
-    )
+    filtered = MENU.copy()
 
-    filtered = MENU
-
-    if selected_category != "Tất cả":
+    if category != "Tất cả":
         filtered = [
-            x for x in filtered
-            if x["category"] == selected_category
+            item for item in filtered
+            if item["category"] == category
         ]
 
-    if keyword:
+    if search.strip():
         filtered = [
-            x for x in filtered
-            if keyword.lower() in x["name"].lower()
+            item for item in filtered
+            if search.lower() in item["name"].lower()
         ]
 
-    if not filtered:
-        st.warning("Không tìm thấy món ăn.")
+    st.write(f"Tìm thấy **{len(filtered)}** món ăn")
 
     cols = st.columns(3)
 
-    for i, item in enumerate(filtered):
+    for index, item in enumerate(filtered):
+        with cols[index % 3]:
+            st.markdown('<div class="food-card">', unsafe_allow_html=True)
 
-        with cols[i % 3]:
-            with st.container(border=True):
+            show_food_image(item)
 
-                show_food_image(item)
+            st.markdown(f"### {item['name']}")
+            st.caption(item["description"])
 
-                st.markdown(f"### {item['name']}")
-                st.caption(item["category"])
-                st.write(item["desc"])
+            st.markdown(
+                f'<div class="price">{money(item["price"])}</div>',
+                unsafe_allow_html=True
+            )
 
-                st.markdown(
-                    f"<div class='price'>{money(item['price'])}</div>",
-                    unsafe_allow_html=True
-                )
+            st.caption(item["category"])
+
+            quantity = st.number_input(
+                "Số lượng",
+                min_value=1,
+                max_value=50,
+                value=1,
+                step=1,
+                key=f"menu_quantity_{item['id']}"
+            )
+
+            note = st.text_input(
+                "Ghi chú món",
+                placeholder="Ví dụ: Không cay",
+                key=f"menu_note_{item['id']}"
+            )
+
+            if st.button(
+                "＋ Thêm vào giỏ",
+                key=f"add_menu_{item['id']}",
+                use_container_width=True
+            ):
+                add_to_cart(item, quantity, note)
+                st.success(f"Đã thêm {item['name']} vào giỏ hàng!")
+
+            st.markdown("</div>", unsafe_allow_html=True)
 
 
-# ======================================================
-# 11. TRANG ĐẶT BÀN
-# ======================================================
+# =====================================================
+# 10. TRANG ĐẶT BÀN
+# =====================================================
 
-elif page == "📅 Đặt bàn":
+elif page == "Đặt bàn":
 
     st.title("📅 ĐẶT BÀN BBQ HOUSE")
-    st.write("Điền thông tin để đặt bàn.")
+    st.write("Điền thông tin để đặt bàn tại nhà hàng.")
 
     with st.form("booking_form"):
 
-        name = st.text_input("Tên khách hàng")
+        name = st.text_input("Họ và tên khách hàng")
         phone = st.text_input("Số điện thoại")
 
-        c1, c2 = st.columns(2)
+        col1, col2 = st.columns(2)
 
-        with c1:
+        with col1:
             booking_date = st.date_input(
                 "Ngày đặt bàn",
+                value=date.today(),
                 min_value=date.today()
             )
 
-        with c2:
-            booking_time = st.time_input("Giờ đến")
+        with col2:
+            booking_time = st.time_input(
+                "Giờ đặt bàn"
+            )
 
-        people = st.number_input(
+        people = st.selectbox(
             "Số lượng khách",
-            min_value=1,
-            max_value=30,
-            value=2
+            list(range(1, 21))
         )
 
         table_type = st.selectbox(
             "Loại bàn",
-            ["Bàn thường", "Bàn gia đình", "Bàn VIP"]
+            [
+                "Bàn thường",
+                "Bàn gia đình",
+                "Bàn nhóm"
+            ]
         )
 
-        note = st.text_area("Ghi chú")
+        note = st.text_area("Ghi chú thêm")
 
-        submit = st.form_submit_button(
+        submitted = st.form_submit_button(
             "XÁC NHẬN ĐẶT BÀN",
             use_container_width=True
         )
 
-        if submit:
+        if submitted:
 
             if not name.strip() or not phone.strip():
-                st.error("Vui lòng nhập tên và số điện thoại.")
+                st.error("Vui lòng nhập họ tên và số điện thoại.")
+
+            elif not phone.strip().replace(" ", "").isdigit():
+                st.error("Số điện thoại không hợp lệ.")
 
             else:
-
                 reservation = {
-                    "id": str(uuid.uuid4())[:8].upper(),
+                    "id": "RES-" + uuid.uuid4().hex[:8].upper(),
                     "name": name.strip(),
                     "phone": phone.strip(),
-                    "date": booking_date.isoformat(),
+                    "date": booking_date.strftime("%d/%m/%Y"),
                     "time": booking_time.strftime("%H:%M"),
-                    "people": int(people),
+                    "people": people,
                     "table_type": table_type,
-                    "note": note,
+                    "note": note.strip(),
                     "created_at": datetime.now().strftime(
-                        "%d/%m/%Y %H:%M"
+                        "%d/%m/%Y %H:%M:%S"
                     )
                 }
 
-                st.session_state.reservations.append(reservation)
+                st.session_state.database[
+                    "reservations"
+                ].append(reservation)
+
                 save_data()
 
-                st.success("ĐẶT BÀN THÀNH CÔNG!")
-                st.write("Mã đặt bàn:", reservation["id"])
+                st.success("Đặt bàn thành công!")
+                st.json(reservation)
 
 
-# ======================================================
-# 12. TRANG ORDER MÓN
-# ======================================================
+# =====================================================
+# 11. TRANG GỌI MÓN
+# =====================================================
 
-elif page == "🛒 Order món":
+elif page == "Gọi món":
 
-    st.title("🛒 ORDER MÓN ĂN")
+    st.title("🛒 GỌI MÓN TẠI BÀN")
 
-    c1, c2 = st.columns(2)
-
-    with c1:
-        st.session_state.customer_name = st.text_input(
-            "Tên khách hàng",
-            value=st.session_state.customer_name
-        )
-
-    with c2:
-        table_options = [
-            f"Bàn {i:02d}" for i in range(1, 21)
-        ]
-
-        current_index = (
-            table_options.index(st.session_state.table_number)
-            if st.session_state.table_number in table_options
-            else 0
-        )
-
-        st.session_state.table_number = st.selectbox(
-            "Chọn bàn",
-            table_options,
-            index=current_index
-        )
-
-    st.divider()
-
-    category = st.selectbox(
-        "Danh mục món",
-        ["Tất cả"] + sorted(
-            set(x["category"] for x in MENU)
-        ),
-        key="order_category"
+    st.text_input(
+        "Tên khách hàng",
+        key="customer_name"
     )
 
-    available = MENU
-
-    if category != "Tất cả":
-        available = [
-            x for x in MENU
-            if x["category"] == category
-        ]
-
-    cols = st.columns(2)
-
-    for i, item in enumerate(available):
-
-        with cols[i % 2]:
-
-            with st.container(border=True):
-
-                show_food_image(item)
-
-                st.markdown(f"### {item['name']}")
-
-                st.markdown(
-                    f"<div class='price'>{money(item['price'])}</div>",
-                    unsafe_allow_html=True
-                )
-
-                qty = st.number_input(
-                    "Số lượng",
-                    min_value=1,
-                    max_value=50,
-                    value=1,
-                    key=f"qty_{item['name']}"
-                )
-
-                if st.button(
-                    "➕ THÊM VÀO GIỎ",
-                    key=f"add_{item['name']}",
-                    use_container_width=True
-                ):
-                    add_to_cart(item, qty)
-                    st.success("Đã thêm món vào giỏ hàng!")
-                    st.rerun()
+    st.selectbox(
+        "Chọn bàn",
+        [f"Bàn {i:02d}" for i in range(1, 21)],
+        key="table_number"
+    )
 
     st.divider()
-    st.subheader("🛒 GIỎ HÀNG")
+
+    st.subheader("Giỏ món của bạn")
 
     if st.session_state.cart:
 
-        for key in list(st.session_state.cart.keys()):
+        for index, item in enumerate(st.session_state.cart):
 
-            item = st.session_state.cart[key]
+            col1, col2, col3 = st.columns([4, 2, 1])
 
-            with st.container(border=True):
+            with col1:
+                st.write(f"**{item['name']}**")
+                st.caption(item["note"] or "Không có ghi chú")
 
-                c1, c2, c3 = st.columns([2, 1, 1])
-
-                with c1:
-                    st.write(f"**{item['name']}**")
-                    st.caption(money(item["price"]))
-
-                with c2:
-                    new_qty = st.number_input(
-                        "Số lượng",
-                        min_value=1,
-                        max_value=100,
-                        value=int(item["qty"]),
-                        key=f"cart_qty_{key}"
-                    )
-
-                    st.session_state.cart[key]["qty"] = new_qty
-
-                with c3:
-                    st.write(
-                        money(item["price"] * item["qty"])
-                    )
-
-                    if st.button(
-                        "🗑️ Xóa",
-                        key=f"delete_{key}"
-                    ):
-                        del st.session_state.cart[key]
-                        st.rerun()
-
-                note = st.text_input(
-                    "Ghi chú món",
-                    value=item.get("note", ""),
-                    key=f"note_{key}"
+            with col2:
+                st.write(
+                    f"{item['quantity']} × {money(item['price'])}"
                 )
 
-                st.session_state.cart[key]["note"] = note
+            with col3:
+                if st.button(
+                    "Xóa",
+                    key=f"remove_cart_{index}"
+                ):
+                    st.session_state.cart.pop(index)
+                    st.rerun()
+
+        st.divider()
 
         st.markdown(
-            f"## TỔNG CỘNG: {money(cart_total())}"
+            f"### Tổng cộng: <span class='price'>{money(cart_total())}</span>",
+            unsafe_allow_html=True
         )
 
-        if st.button(
-            "XÁC NHẬN ĐƠN HÀNG",
-            use_container_width=True
-        ):
+        col1, col2 = st.columns(2)
 
-            if not st.session_state.customer_name.strip():
-                st.error("Vui lòng nhập tên khách hàng.")
+        with col1:
+            if st.button(
+                "XÓA TOÀN BỘ GIỎ HÀNG",
+                use_container_width=True
+            ):
+                clear_cart()
+                st.rerun()
 
-            elif st.session_state.current_order is not None:
-                st.warning(
-                    "Bạn còn đơn hàng chờ thanh toán. "
-                    "Hãy thanh toán đơn cũ trước."
-                )
+        with col2:
+            if st.button(
+                "XÁC NHẬN GỌI MÓN",
+                use_container_width=True
+            ):
 
-            else:
-                st.session_state.current_order = create_order()
-                st.session_state.cart = {}
+                if not st.session_state.customer_name.strip():
+                    st.error("Vui lòng nhập tên khách hàng.")
 
-                st.success("TẠO ĐƠN HÀNG THÀNH CÔNG!")
-                st.info(
-                    "Mã đơn: " +
-                    st.session_state.current_order["id"]
-                )
-                st.info("Vào mục Thanh toán để hoàn tất.")
+                else:
+                    order_id = create_order()
+
+                    if order_id:
+                        st.success(
+                            f"Đã tạo đơn hàng {order_id} thành công!"
+                        )
+                        st.info(
+                            "Vào trang Thanh toán để xem và thanh toán hóa đơn."
+                        )
 
     else:
-        st.info("Giỏ hàng đang trống.")
+        st.info("Giỏ hàng đang trống. Hãy vào Thực đơn để chọn món.")
 
 
-# ======================================================
-# 13. TRANG THANH TOÁN
-# ======================================================
+# =====================================================
+# 12. TRANG THANH TOÁN
+# =====================================================
 
-elif page == "💳 Thanh toán":
+elif page == "Thanh toán":
 
-    st.title("💳 THANH TOÁN")
+    st.title("💳 THANH TOÁN HÓA ĐƠN")
 
-    order = st.session_state.current_order
+    orders = st.session_state.database["orders"]
 
-    if order is None:
-
-        st.warning("Chưa có đơn hàng chờ thanh toán.")
-
+    if not orders:
+        st.info("Chưa có đơn hàng nào.")
     else:
 
-        st.subheader("THÔNG TIN HÓA ĐƠN")
+        unpaid = [
+            order for order in orders
+            if order["status"] == "Chưa thanh toán"
+        ]
 
-        st.write("Mã đơn:", order["id"])
-        st.write("Khách hàng:", order["customer"])
-        st.write("Bàn:", order["table"])
-        st.write("Thời gian:", order["created_at"])
+        if unpaid:
 
-        rows = []
+            order_options = {
+                f"{order['id']} | {order['customer']} | {money(order['total'])}":
+                order["id"]
+                for order in unpaid
+            }
 
-        for item in order["items"]:
-            rows.append({
-                "Tên món": item["name"],
-                "Đơn giá": money(item["price"]),
-                "Số lượng": item["qty"],
-                "Thành tiền": money(
-                    item["price"] * item["qty"]
-                ),
-                "Ghi chú": item.get("note", "")
-            })
-
-        st.dataframe(
-            pd.DataFrame(rows),
-            use_container_width=True,
-            hide_index=True
-        )
-
-        st.markdown(
-            f"# TỔNG TIỀN: {money(order['total'])}"
-        )
-
-        method = st.selectbox(
-            "Phương thức thanh toán",
-            ["Tiền mặt", "Chuyển khoản", "Thẻ ngân hàng"]
-        )
-
-        invoice = f"""
-BBQ HOUSE
-HÓA ĐƠN THANH TOÁN
-
-Mã đơn: {order['id']}
-Khách hàng: {order['customer']}
-Bàn: {order['table']}
-Thời gian: {order['created_at']}
-
-CHI TIẾT MÓN:
-"""
-
-        for item in order["items"]:
-            invoice += (
-                f"\n{item['name']} x {item['qty']}"
-                f" = {money(item['price'] * item['qty'])}"
+            selected_label = st.selectbox(
+                "Chọn hóa đơn cần thanh toán",
+                list(order_options.keys())
             )
 
-        invoice += f"\n\nTỔNG CỘNG: {money(order['total'])}"
+            order = find_order(order_options[selected_label])
 
-        st.download_button(
-            "📥 TẢI HÓA ĐƠN",
-            data=invoice,
-            file_name=f"hoadon_{order['id']}.txt",
-            mime="text/plain"
-        )
+            if order:
 
-        if st.button(
-            "XÁC NHẬN ĐÃ THANH TOÁN",
-            use_container_width=True
-        ):
+                st.subheader("BBQ HOUSE")
+                st.caption("HÓA ĐƠN THANH TOÁN")
 
-            order["paid"] = True
-            order["payment_method"] = method
-            order["paid_at"] = datetime.now().strftime(
-                "%d/%m/%Y %H:%M"
+                st.write(f"**Mã hóa đơn:** {order['id']}")
+                st.write(f"**Khách hàng:** {order['customer']}")
+                st.write(f"**Bàn:** {order['table']}")
+                st.write(f"**Thời gian:** {order['created_at']}")
+
+                st.divider()
+
+                bill_data = []
+
+                for item in order["items"]:
+                    bill_data.append({
+                        "Món ăn": item["name"],
+                        "Đơn giá": money(item["price"]),
+                        "Số lượng": item["quantity"],
+                        "Thành tiền": money(
+                            item["price"] * item["quantity"]
+                        ),
+                        "Ghi chú": item.get("note", "")
+                    })
+
+                st.dataframe(
+                    pd.DataFrame(bill_data),
+                    use_container_width=True,
+                    hide_index=True
+                )
+
+                st.markdown(
+                    f"## Tổng thanh toán: <span class='price'>{money(order['total'])}</span>",
+                    unsafe_allow_html=True
+                )
+
+                payment_method = st.radio(
+                    "Phương thức thanh toán",
+                    [
+                        "Tiền mặt",
+                        "Chuyển khoản",
+                        "Thẻ ngân hàng"
+                    ],
+                    horizontal=True
+                )
+
+                if st.button(
+                    "XÁC NHẬN ĐÃ THANH TOÁN",
+                    use_container_width=True
+                ):
+
+                    order["status"] = "Đã thanh toán"
+                    order["payment_method"] = payment_method
+                    order["paid_at"] = datetime.now().strftime(
+                        "%d/%m/%Y %H:%M:%S"
+                    )
+
+                    save_data()
+
+                    st.success("Thanh toán thành công!")
+                    st.rerun()
+
+        else:
+            st.success("Không có hóa đơn nào đang chờ thanh toán.")
+
+        st.divider()
+
+        st.subheader("🧾 Xuất hóa đơn")
+
+        paid_orders = [
+            order for order in orders
+            if order["status"] == "Đã thanh toán"
+        ]
+
+        if paid_orders:
+
+            invoice_labels = {
+                f"{order['id']} | {order['customer']}":
+                order["id"]
+                for order in paid_orders
+            }
+
+            selected_invoice = st.selectbox(
+                "Chọn hóa đơn đã thanh toán",
+                list(invoice_labels.keys()),
+                key="invoice_select"
             )
 
-            st.session_state.order_history.append(
-                order.copy()
+            invoice = find_order(
+                invoice_labels[selected_invoice]
             )
 
-            save_data()
+            if invoice:
 
-            st.session_state.current_order = None
+                lines = [
+                    "BBQ HOUSE",
+                    "HOA DON THANH TOAN",
+                    "--------------------------------",
+                    f"Ma hoa don: {invoice['id']}",
+                    f"Khach hang: {invoice['customer']}",
+                    f"Ban: {invoice['table']}",
+                    f"Thoi gian: {invoice['created_at']}",
+                    "--------------------------------",
+                ]
 
-            st.success("THANH TOÁN THÀNH CÔNG!")
-            st.balloons()
-            st.rerun()
+                for item in invoice["items"]:
+                    lines.append(
+                        f"{item['name']} x {item['quantity']}"
+                    )
+                    lines.append(
+                        f"Thanh tien: {money(item['price'] * item['quantity'])}"
+                    )
+
+                lines.extend([
+                    "--------------------------------",
+                    f"TONG CONG: {money(invoice['total'])}",
+                    f"Phuong thuc: {invoice['payment_method']}",
+                    "TRANG THAI: DA THANH TOAN",
+                    "Cam on quy khach!"
+                ])
+
+                invoice_text = "\n".join(lines)
+
+                st.code(invoice_text)
+
+                st.download_button(
+                    "⬇️ TẢI HÓA ĐƠN TXT",
+                    data=invoice_text,
+                    file_name=f"{invoice['id']}.txt",
+                    mime="text/plain",
+                    use_container_width=True
+                )
 
 
-# ======================================================
-# 14. TRANG QUẢN LÝ
-# ======================================================
+# =====================================================
+# 13. QUẢN LÝ ĐƠN HÀNG
+# =====================================================
 
-elif page == "📋 Quản lý":
+elif page == "Quản lý đơn hàng":
 
     st.title("📋 QUẢN LÝ NHÀ HÀNG")
 
     tab1, tab2 = st.tabs([
-        "🧾 Đơn hàng",
-        "📅 Đặt bàn"
+        "Đơn hàng",
+        "Đặt bàn"
     ])
 
     with tab1:
 
-        st.subheader("DANH SÁCH ĐƠN HÀNG")
+        orders = st.session_state.database["orders"]
 
-        if st.session_state.order_history:
+        st.subheader("Danh sách đơn hàng")
 
-            for order in reversed(
-                st.session_state.order_history
-            ):
+        if orders:
 
-                status = (
-                    "Đã thanh toán"
-                    if order.get("paid")
-                    else "Chưa thanh toán"
-                )
+            for order in reversed(orders):
 
                 with st.expander(
-                    f"{order['id']} | {order['customer']} | {status}"
+                    f"{order['id']} | {order['customer']} | {money(order['total'])}"
                 ):
 
-                    st.write("Bàn:", order["table"])
-                    st.write("Thời gian:", order["created_at"])
+                    st.write(f"**Bàn:** {order['table']}")
+                    st.write(f"**Thời gian:** {order['created_at']}")
+                    st.write(f"**Trạng thái:** {order['status']}")
+
+                    if order.get("payment_method"):
+                        st.write(
+                            f"**Thanh toán:** {order['payment_method']}"
+                        )
 
                     for item in order["items"]:
                         st.write(
-                            f"- {item['name']} x {item['qty']}"
+                            f"- {item['name']} x {item['quantity']} "
+                            f"= {money(item['price'] * item['quantity'])}"
                         )
 
-                    st.write(
-                        "Tổng tiền:",
-                        money(order["total"])
+                    st.markdown(
+                        f"**Tổng tiền: {money(order['total'])}**"
                     )
-
-                    if order.get("paid"):
-                        st.success(
-                            order.get("payment_method", "")
-                        )
-                    else:
-                        st.warning("Chưa thanh toán.")
 
         else:
             st.info("Chưa có đơn hàng.")
 
     with tab2:
 
-        st.subheader("DANH SÁCH ĐẶT BÀN")
+        reservations = st.session_state.database["reservations"]
 
-        if st.session_state.reservations:
+        st.subheader("Danh sách đặt bàn")
 
-            reservation_df = pd.DataFrame(
-                st.session_state.reservations
-            )
+        if reservations:
 
-            st.dataframe(
-                reservation_df,
-                use_container_width=True,
-                hide_index=True
-            )
+            for reservation in reversed(reservations):
+
+                with st.expander(
+                    f"{reservation['name']} | {reservation['date']} | {reservation['time']}"
+                ):
+
+                    st.write(f"**Mã đặt bàn:** {reservation['id']}")
+                    st.write(f"**Điện thoại:** {reservation['phone']}")
+                    st.write(f"**Số khách:** {reservation['people']}")
+                    st.write(f"**Loại bàn:** {reservation['table_type']}")
+                    st.write(f"**Ghi chú:** {reservation['note']}")
 
         else:
-            st.info("Chưa có thông tin đặt bàn.")
+            st.info("Chưa có lượt đặt bàn.")
 
 
-# ======================================================
-# 15. TRANG DOANH THU
-# ======================================================
+# =====================================================
+# 14. TRANG DOANH THU
+# =====================================================
 
-elif page == "📊 Doanh thu":
+elif page == "Doanh thu":
 
     st.title("📊 THỐNG KÊ DOANH THU")
 
+    orders = st.session_state.database["orders"]
+
     paid_orders = [
-        order for order in st.session_state.order_history
-        if order.get("paid") is True
+        order for order in orders
+        if order["status"] == "Đã thanh toán"
     ]
 
+    today_string = date.today().strftime("%d/%m/%Y")
+
     period = st.selectbox(
-        "Chọn thời gian",
+        "Thời gian thống kê",
         [
+            "Tất cả",
             "Hôm nay",
             "7 ngày gần nhất",
-            "Tháng này",
-            "Năm nay",
-            "Tất cả"
+            "30 ngày gần nhất"
         ]
     )
 
-    today = date.today()
-
-    if period == "Hôm nay":
-        start_date = today
-
-    elif period == "7 ngày gần nhất":
-        start_date = today - timedelta(days=6)
-
-    elif period == "Tháng này":
-        start_date = today.replace(day=1)
-
-    elif period == "Năm nay":
-        start_date = today.replace(month=1, day=1)
-
-    else:
-        start_date = date.min
+    def parse_datetime(order):
+        try:
+            return datetime.strptime(
+                order["paid_at"],
+                "%d/%m/%Y %H:%M:%S"
+            )
+        except (KeyError, ValueError):
+            return None
 
     filtered_orders = []
 
     for order in paid_orders:
 
-        try:
-            order_date = date.fromisoformat(
-                order["created_date"]
-            )
+        paid_date = parse_datetime(order)
 
-            if start_date <= order_date <= today:
-                filtered_orders.append(order)
-
-        except (KeyError, ValueError):
+        if not paid_date:
             continue
 
-    revenue = sum(
-        order["total"]
-        for order in filtered_orders
+        days = (date.today() - paid_date.date()).days
+
+        if period == "Tất cả":
+            filtered_orders.append(order)
+
+        elif period == "Hôm nay" and days == 0:
+            filtered_orders.append(order)
+
+        elif period == "7 ngày gần nhất" and 0 <= days < 7:
+            filtered_orders.append(order)
+
+        elif period == "30 ngày gần nhất" and 0 <= days < 30:
+            filtered_orders.append(order)
+
+    total_revenue = sum(
+        order["total"] for order in filtered_orders
     )
 
-    order_count = len(filtered_orders)
+    total_orders = len(filtered_orders)
 
-    item_count = sum(
-        item["qty"]
+    total_items = sum(
+        item["quantity"]
         for order in filtered_orders
         for item in order["items"]
     )
 
     average = (
-        revenue / order_count
-        if order_count
-        else 0
+        total_revenue / total_orders
+        if total_orders else 0
     )
 
-    c1, c2 = st.columns(2)
+    col1, col2 = st.columns(2)
 
-    c1.metric("💰 Tổng doanh thu", money(revenue))
-    c1.metric("🧾 Đơn đã thanh toán", order_count)
+    with col1:
+        st.metric(
+            "💰 Tổng doanh thu",
+            money(total_revenue)
+        )
 
-    c2.metric("🍖 Số món bán ra", item_count)
-    c2.metric("📈 Trung bình mỗi đơn", money(average))
+    with col2:
+        st.metric(
+            "🧾 Số đơn đã thanh toán",
+            total_orders
+        )
+
+    col3, col4 = st.columns(2)
+
+    with col3:
+        st.metric(
+            "🍽️ Số món đã bán",
+            total_items
+        )
+
+    with col4:
+        st.metric(
+            "📈 Giá trị đơn trung bình",
+            money(average)
+        )
 
     st.divider()
-    st.subheader("🔥 MÓN ĂN BÁN CHẠY")
 
-    sold = {}
+    st.subheader("🏆 Món bán chạy")
+
+    sold_items = {}
 
     for order in filtered_orders:
         for item in order["items"]:
-            name = item["name"]
-            sold[name] = sold.get(name, 0) + item["qty"]
+            sold_items[item["name"]] = (
+                sold_items.get(item["name"], 0)
+                + item["quantity"]
+            )
 
-    if sold:
+    if sold_items:
 
-        best_sellers = pd.DataFrame([
-            {
-                "Tên món": name,
-                "Số lượng bán": quantity
-            }
-            for name, quantity in sold.items()
-        ])
-
-        best_sellers = best_sellers.sort_values(
+        best_sellers = pd.DataFrame(
+            [
+                {
+                    "Tên món": name,
+                    "Số lượng bán": quantity
+                }
+                for name, quantity in sold_items.items()
+            ]
+        ).sort_values(
             "Số lượng bán",
             ascending=False
         )
@@ -1086,66 +1302,65 @@ elif page == "📊 Doanh thu":
         )
 
     else:
-        st.info("Chưa có dữ liệu bán hàng.")
+        st.info("Chưa có dữ liệu bán hàng trong khoảng thời gian này.")
 
     st.divider()
-    st.subheader("📋 CHI TIẾT GIAO DỊCH")
+
+    st.subheader("📄 Chi tiết giao dịch")
 
     if filtered_orders:
 
-        transactions = []
+        revenue_data = []
 
         for order in filtered_orders:
-
-            transactions.append({
+            revenue_data.append({
                 "Mã đơn": order["id"],
                 "Khách hàng": order["customer"],
                 "Bàn": order["table"],
-                "Thời gian": order["created_at"],
-                "Tổng tiền": order["total"],
-                "Thanh toán": order.get(
-                    "payment_method", ""
-                )
+                "Ngày thanh toán": order.get("paid_at", ""),
+                "Phương thức": order.get("payment_method", ""),
+                "Tổng tiền": order["total"]
             })
 
-        transaction_df = pd.DataFrame(transactions)
+        revenue_df = pd.DataFrame(revenue_data)
 
         st.dataframe(
-            transaction_df,
+            revenue_df,
             use_container_width=True,
             hide_index=True
         )
 
-        csv_data = transaction_df.to_csv(
+        csv_data = revenue_df.to_csv(
             index=False
         ).encode("utf-8-sig")
 
         st.download_button(
-            "📥 XUẤT BÁO CÁO CSV",
+            "⬇️ XUẤT BÁO CÁO DOANH THU CSV",
             data=csv_data,
             file_name="bao_cao_doanh_thu.csv",
-            mime="text/csv"
+            mime="text/csv",
+            use_container_width=True
         )
 
     else:
-        st.info("Không có giao dịch trong thời gian này.")
+        st.info("Chưa có giao dịch thanh toán trong khoảng thời gian này.")
 
 
-# ======================================================
-# 16. FOOTER
-# ======================================================
+# =====================================================
+# 15. CHÂN TRANG
+# =====================================================
 
 st.divider()
 
 st.markdown("""
-<div style="text-align:center;padding:20px">
-    <h3>🔥 BBQ HOUSE 🔥</h3>
-    <p>THE TASTE OF KOREAN BBQ</p>
-    <p style="color:#999">
-        Thank you for choosing us!
-    </p>
-    <p style="color:#777;font-size:12px">
-        © 2026 BBQ HOUSE - All rights reserved.
-    </p>
+<div style="
+    text-align:center;
+    padding:20px;
+    color:#999999;
+">
+    <h3 style="color:#ff7029;">🔥 BBQ HOUSE</h3>
+    <p>GRILL • HOTPOT • ENJOY</p>
+    <p>Trải nghiệm ẩm thực - Kết nối mọi khoảnh khắc</p>
+    <small>© 2026 BBQ HOUSE. All rights reserved.</small>
 </div>
 """, unsafe_allow_html=True)
