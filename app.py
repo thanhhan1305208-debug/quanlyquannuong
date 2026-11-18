@@ -137,11 +137,13 @@ MENU = [
         "image": "https://images.unsplash.com/photo-1532550907401-a500c9a57435?w=700"
     },
     {
-        "name": "Mực nướng sa tế",
-        "category": "Hải sản",
-        "price": 129000,
-        "desc": "Mực tươi nướng sa tế cay nhẹ.",
-        "image": "https://images.unsplash.com/photo-1559737558-2f5a35f4523b?w=700"
+       {
+    "name": "Mực nướng sa tế",
+    "category": "Hải sản",
+    "price": 129000,
+    "desc": "Mực tươi nướng sa tế cay thơm, đậm vị.",
+    "image": "https://recipe1.ezmember.co.kr/cache/recipe/2018/01/27/1c31e970a3f07270e3d5f4ac91b2daae1.jpg"
+},
     },
     {
         "name": "Tôm nướng muối ớt",
@@ -165,11 +167,13 @@ MENU = [
         "image": "https://images.unsplash.com/photo-1573080496219-bb080dd4f877?w=700"
     },
     {
-        "name": "Rau củ nướng",
-        "category": "Món ăn kèm",
-        "price": 39000,
-        "desc": "Rau củ tươi nướng thơm.",
-        "image": "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=700"
+        {
+    "name": "Salad trộn",
+    "category": "Món ăn kèm",
+    "price": 45000,
+    "desc": "Xà lách tươi, cà chua, dưa leo và sốt salad.",
+    "image": "https://static.mywebsites360.com/a76870229dec4044a289aa0e5a642d07/i/bd0feec58af349908fd6293a75c6232c/1/4SoifmQp45JMgBnHp7ed2/What%2527s%20on%20the%20Menu_%20A%20Sneak%20Peek%20at%20Motown%20Extreme%25E2%2580%2599s%20Dinner1.jpg"
+},
     },
     {
         "name": "Cơm chiên trứng",
