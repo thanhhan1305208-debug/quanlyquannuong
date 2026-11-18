@@ -1,9 +1,11 @@
 
 import streamlit as st
 import pandas as pd
+import requests
 import json
 import os
 from datetime import datetime, date, time
+from urllib.parse import quote
 
 # =====================================================
 # 1. CẤU HÌNH
@@ -85,94 +87,97 @@ MENU = [
 ]
 
 CATEGORIES = [
-    "Thịt bò",
-    "Thịt heo",
-    "Hải sản",
-    "Rau củ",
-    "Lẩu & món nóng",
-    "Đồ uống"
+    "Thịt bò", "Thịt heo", "Hải sản",
+    "Rau củ", "Lẩu & món nóng", "Đồ uống"
 ]
 
 # =====================================================
-# 3. ẢNH TRỰC TUYẾN RIÊNG CHO TỪNG MÓN
+# 3. ẢNH RIÊNG CHO TỪNG MÓN
 # =====================================================
+
 # Mỗi món có từ khóa và mã ảnh riêng.
-# lock giúp giữ kết quả ảnh ổn định hơn giữa các lần tải.
+# Ảnh được tải từ LoremFlickr.
 
-IMAGE_URLS = {
-    "Ba chỉ bò Mỹ":
-        "https://loremflickr.com/900/650/beef,belly,grilled?lock=101",
+IMAGE_SETTINGS = {
+    "Ba chỉ bò Mỹ": ("beef,brisket,grilled,food", 101),
+    "Sườn bò nướng": ("grilled,beef,ribs,barbecue", 102),
+    "Lõi vai bò Mỹ": ("beef,steak,grilled,food", 103),
+    "Bò cuộn nấm": ("beef,mushroom,roll,food", 104),
 
-    "Sườn bò nướng":
-        "https://loremflickr.com/900/650/grilled,beef,ribs?lock=102",
+    "Ba chỉ heo nướng": ("pork,belly,grilled,barbecue", 105),
+    "Sườn heo BBQ": ("pork,ribs,barbecue,grilled", 106),
+    "Nạc vai heo": ("pork,meat,grilled,food", 107),
 
-    "Lõi vai bò Mỹ":
-        "https://loremflickr.com/900/650/beef,steak,grilled?lock=103",
+    "Tôm sú nướng": ("grilled,shrimp,prawn,food", 108),
+    "Mực nướng sa tế": ("grilled,squid,seafood,food", 109),
+    "Bạch tuộc nướng": ("grilled,octopus,seafood", 110),
+    "Hàu nướng phô mai": ("baked,oyster,cheese,seafood", 111),
 
-    "Bò cuộn nấm":
-        "https://loremflickr.com/900/650/beef,mushroom,roll?lock=104",
+    "Nấm kim châm": ("enoki,mushroom,food", 112),
+    "Rau củ tổng hợp": ("grilled,vegetable,platter,food", 113),
+    "Kim chi Hàn Quốc": ("korean,kimchi,food", 114),
 
-    "Ba chỉ heo nướng":
-        "https://loremflickr.com/900/650/grilled,pork,belly?lock=105",
+    "Lẩu Thái hải sản": ("thai,seafood,hotpot,soup", 115),
+    "Lẩu kim chi": ("korean,kimchi,hotpot,stew", 116),
+    "Cơm chiên hải sản": ("seafood,fried,rice,food", 117),
 
-    "Sườn heo BBQ":
-        "https://loremflickr.com/900/650/barbecue,pork,ribs?lock=106",
-
-    "Nạc vai heo":
-        "https://loremflickr.com/900/650/pork,shoulder,meat?lock=107",
-
-    "Tôm sú nướng":
-        "https://loremflickr.com/900/650/grilled,prawn,shrimp?lock=108",
-
-    "Mực nướng sa tế":
-        "https://loremflickr.com/900/650/grilled,squid,seafood?lock=109",
-
-    "Bạch tuộc nướng":
-        "https://loremflickr.com/900/650/grilled,octopus?lock=110",
-
-    "Hàu nướng phô mai":
-        "https://loremflickr.com/900/650/baked,oysters,cheese?lock=111",
-
-    "Nấm kim châm":
-        "https://loremflickr.com/900/650/enoki,mushroom?lock=112",
-
-    "Rau củ tổng hợp":
-        "https://loremflickr.com/900/650/grilled,vegetable,platter?lock=113",
-
-    "Kim chi Hàn Quốc":
-        "https://loremflickr.com/900/650/korean,kimchi?lock=114",
-
-    "Lẩu Thái hải sản":
-        "https://loremflickr.com/900/650/thai,seafood,hotpot?lock=115",
-
-    "Lẩu kim chi":
-        "https://loremflickr.com/900/650/korean,kimchi,stew?lock=116",
-
-    "Cơm chiên hải sản":
-        "https://loremflickr.com/900/650/seafood,fried,rice?lock=117",
-
-    "Trà đào cam sả":
-        "https://loremflickr.com/900/650/peach,iced,tea?lock=118",
-
-    "Nước ngọt":
-        "https://loremflickr.com/900/650/soft,drink,glass?lock=119",
-
-    "Nước suối":
-        "https://loremflickr.com/900/650/bottled,water?lock=120"
+    "Trà đào cam sả": ("peach,iced,tea,drink", 118),
+    "Nước ngọt": ("soft,drink,glass,ice", 119),
+    "Nước suối": ("bottled,water,drink", 120)
 }
 
 
-def show_food_image(item):
-    image_url = IMAGE_URLS.get(item["name"])
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_food_image(tags, image_lock):
+    url = (
+        f"https://loremflickr.com/900/650/"
+        f"{quote(tags, safe=',')}?lock={image_lock}"
+    )
 
-    if image_url:
+    try:
+        response = requests.get(
+            url,
+            timeout=20,
+            headers={"User-Agent": "Mozilla/5.0"},
+            allow_redirects=True
+        )
+
+        response.raise_for_status()
+
+        content_type = response.headers.get("Content-Type", "")
+
+        if "image" not in content_type.lower():
+            return None
+
+        if len(response.content) < 1000:
+            return None
+
+        return response.content
+
+    except requests.RequestException:
+        return None
+
+
+def show_food_image(item):
+    settings = IMAGE_SETTINGS.get(item["name"])
+
+    if settings is None:
+        st.warning("Chưa có cấu hình ảnh cho món này.")
+        return
+
+    tags, image_lock = settings
+    image_data = get_food_image(tags, image_lock)
+
+    if image_data:
         st.image(
-            image_url,
+            image_data,
             use_container_width=True,
             caption=item["name"]
         )
     else:
-        st.warning(f"Chưa có ảnh cho món {item['name']}")
+        st.warning(
+            f"Không tải được ảnh minh họa: {item['name']}"
+        )
 
 
 # =====================================================
@@ -180,10 +185,7 @@ def show_food_image(item):
 # =====================================================
 
 def load_database():
-    default_data = {
-        "orders": [],
-        "bookings": []
-    }
+    default_data = {"orders": [], "bookings": []}
 
     if not os.path.exists(DATA_FILE):
         return default_data
@@ -197,7 +199,6 @@ def load_database():
 
         data.setdefault("orders", [])
         data.setdefault("bookings", [])
-
         return data
 
     except (json.JSONDecodeError, OSError, TypeError):
@@ -375,16 +376,19 @@ if page == "🏠 Trang chủ":
         unsafe_allow_html=True
     )
 
-    hero_url = (
-        "https://loremflickr.com/1400/550/"
-        "korean,bbq,grill,restaurant?lock=200"
+    hero_image = get_food_image(
+        "barbecue,grilled,meat,restaurant,food",
+        900
     )
 
-    st.image(
-        hero_url,
-        use_container_width=True,
-        caption="BBQ HOUSE - Grill • Food • Good Times"
-    )
+    if hero_image:
+        st.image(
+            hero_image,
+            use_container_width=True,
+            caption="BBQ HOUSE - Grill • Food • Good Times"
+        )
+    else:
+        st.info("Ảnh banner chưa tải được.")
 
     st.markdown("## CHÀO MỪNG ĐẾN VỚI BBQ HOUSE")
 
@@ -395,7 +399,6 @@ if page == "🏠 Trang chủ":
     )
 
     col1, col2, col3 = st.columns(3)
-
     col1.metric("Thực đơn", "20 món")
     col2.metric("Nhóm món", "6 nhóm")
     col3.metric("Phong cách", "BBQ")
@@ -403,17 +406,15 @@ if page == "🏠 Trang chủ":
     st.divider()
     st.markdown("## ⭐ MÓN ĂN NỔI BẬT")
 
-    featured_indices = [0, 9, 14]
     columns = st.columns(3)
 
-    for column, index in zip(columns, featured_indices):
+    for column, index in zip(columns, [0, 9, 14]):
         item = MENU[index]
 
         with column:
             show_food_image(item)
             st.markdown(f"### {item['name']}")
             st.write(item["description"])
-
             st.markdown(
                 f"<div class='food-price'>{money(item['price'])}</div>",
                 unsafe_allow_html=True
@@ -461,7 +462,6 @@ elif page == "🍖 Thực đơn":
         columns = st.columns(3)
 
         for column, item in zip(columns, filtered[start:start + 3]):
-
             with column:
                 index = MENU.index(item)
 
@@ -549,10 +549,8 @@ elif page == "📅 Đặt bàn":
         )
 
         if submitted:
-
             if not name.strip() or not phone.strip():
                 st.error("Vui lòng nhập họ tên và số điện thoại.")
-
             else:
                 booking = {
                     "name": name.strip(),
@@ -579,10 +577,7 @@ elif page == "🛒 Gọi món":
 
     st.title("🛒 GỌI MÓN")
 
-    customer = st.text_input(
-        "Tên khách hàng",
-        key="order_customer"
-    )
+    st.text_input("Tên khách hàng", key="order_customer")
 
     table = st.selectbox(
         "Chọn bàn",
@@ -610,12 +605,10 @@ elif page == "🛒 Gọi món":
         columns = st.columns(2)
 
         for column, item in zip(columns, available[start:start + 2]):
-
             with column:
                 index = MENU.index(item)
 
                 show_food_image(item)
-
                 st.markdown(f"### {item['name']}")
                 st.write(money(item["price"]))
 
@@ -643,7 +636,6 @@ elif page == "🛒 Gọi món":
     if st.session_state.cart:
 
         for name, item in list(st.session_state.cart.items()):
-
             col1, col2, col3, col4 = st.columns([3, 1, 2, 1])
 
             with col1:
@@ -734,7 +726,6 @@ elif page == "💳 Thanh toán":
 
             if not customer.strip():
                 st.error("Vui lòng nhập tên khách hàng.")
-
             else:
                 order = {
                     "id": "BBQ" + datetime.now().strftime("%Y%m%d%H%M%S"),
@@ -763,8 +754,6 @@ elif page == "💳 Thanh toán":
     else:
         st.info("Giỏ hàng đang trống. Hãy chọn món trước khi thanh toán.")
 
-    # HÓA ĐƠN SAU THANH TOÁN
-
     if st.session_state.last_invoice:
 
         order = st.session_state.last_invoice
@@ -787,7 +776,6 @@ elif page == "💳 Thanh toán":
         ]
 
         for item in order["items"]:
-
             line = (
                 f"{item['name']} x{item['quantity']} = "
                 f"{money(item['price'] * item['quantity'])}"
@@ -846,7 +834,6 @@ elif page == "📋 Quản lý":
         st.subheader("DANH SÁCH ĐƠN HÀNG")
 
         if orders:
-
             for order in reversed(orders):
 
                 with st.expander(
@@ -875,7 +862,6 @@ elif page == "📋 Quản lý":
         st.subheader("DANH SÁCH ĐẶT BÀN")
 
         if bookings:
-
             for index, booking in enumerate(bookings):
 
                 with st.expander(
@@ -909,6 +895,7 @@ elif page == "📋 Quản lý":
 
                     if selected != current_status:
                         st.session_state.database["bookings"][index]["status"] = selected
+
                         if save_database():
                             st.success("Đã cập nhật trạng thái.")
                             st.rerun()
